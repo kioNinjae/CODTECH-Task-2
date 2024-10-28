@@ -1,0 +1,119 @@
+/*
+Task: Create a Vulnerability Scanner
+Objective: Develop a Python script that scans a given URL or IP address for common security vulnerabilities.
+
+Key Features:
+
+Input Validation: Check if the input is a valid URL or IP address.
+Open Port Scanning: Identify open ports on the specified IP address.
+Website Security Check: Analyze HTTP headers for security best practices (e.g., presence of security headers).
+Server Version Detection: Identify the web server type from the response headers and provide warnings about potential vulnerabilities.
+Implementation Steps:
+
+Define Functions:
+
+is_valid_ip(ip): Validates IP addresses.
+is_valid_url(url): Validates URLs.
+ping_host(host): Checks if the host is reachable.
+scan_open_ports(target_ip): Scans for open ports.
+check_website_security(url): Checks for security headers and server information.
+Main Execution:
+
+Prompt the user for input.
+Validate the input and call the appropriate functions based on whether it's a URL or IP address.
+Output: The script will display open ports, security header statuses, and potential vulnerabilities based on the server type
+*/
+
+
+import socket
+import requests
+import re
+import os
+import platform
+
+def is_valid_ip(ip):
+    """Check if the provided string is a valid IP address."""
+    pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
+    if pattern.match(ip):
+        parts = ip.split('.')
+        return all(0 <= int(part) <= 255 for part in parts)
+    return False
+
+def is_valid_url(url):
+    """Check if the provided string is a valid URL."""
+    pattern = re.compile(r'^(http://|https://)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}(/.*)?$')
+    return pattern.match(url) is not None
+
+def ping_host(host):
+    """Ping the host to check if it's reachable."""
+    command = f"ping -c 1 {host}" if platform.system().lower() != "windows" else f"ping -n 1 {host}"
+    response = os.system(command)
+    return response == 0
+
+def scan_open_ports(target_ip):
+    """Scan for open ports on the specified target IP address."""
+    print(f"\nScanning for open ports on {target_ip}...")
+    open_ports = []
+    
+    for port in range(1, 1025):  # Scanning ports from 1 to 1024
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)  # Set timeout for connection attempts
+            result = sock.connect_ex((target_ip, port))  # Try to connect to the port
+            if result == 0:  # If the port is open
+                open_ports.append(port)
+
+    if open_ports:
+        print(f"Open ports found on {target_ip}: {open_ports}")
+    else:
+        print(f"No open ports found on {target_ip}.")
+
+def check_website_security(url):
+    """Check the website for common security headers and potential vulnerabilities."""
+    print(f"\nChecking security for website: {url}")
+    try:
+        response = requests.get(url)
+        print(f"HTTP Status Code: {response.status_code}")
+
+        # Check for common security headers
+        security_headers = {
+            'X-Content-Type-Options': 'Missing',
+            'X-Frame-Options': 'Missing',
+            'X-XSS-Protection': 'Missing',
+            'Strict-Transport-Security': 'Missing',
+            'Content-Security-Policy': 'Missing'
+        }
+
+        for header in security_headers.keys():
+            if header in response.headers:
+                security_headers[header] = 'Present'
+
+        # Display the status of security headers
+        for header, status in security_headers.items():
+            print(f"{header}: {status}")
+
+        # Identify the server type from the response headers
+        server_info = response.headers.get('Server', 'Unknown')
+        print(f"Server Information: {server_info}")
+
+        # Basic checks for known vulnerabilities based on server type
+        if "Apache" in server_info:
+            print("Warning: Check for Apache vulnerabilities.")
+        elif "nginx" in server_info:
+            print("Warning: Check for Nginx vulnerabilities.")
+        elif "IIS" in server_info:
+            print("Warning: Check for IIS vulnerabilities.")
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error checking website: {e}")
+
+if __name__ == "__main__":
+    # Main execution starts here
+    target = input("Enter a URL (e.g., http://example.com) or IP address (e.g., 192.168.1.1) to scan: ")
+
+    # Validate the input and perform the appropriate scan
+    if is_valid_ip(target):
+        scan_open_ports(target)
+    elif is_valid_url(target):
+        check_website_security(target)
+    else:
+        print("Invalid input. Please enter a valid URL or IP address.")
